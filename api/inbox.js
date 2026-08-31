@@ -136,6 +136,19 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Alamat ini pernah dihapus lewat bot (lihat handleDelete() di Worker
+  // am-gen-mail) -- worker nulis penanda { __deleted: true } di key ini
+  // dan berhenti nyimpen email baru buat alamat ini. Di sini kita tolak
+  // dengan "terminal: true", yang bikin index.html langsung berhenti
+  // polling & nampilin pesan gak-bisa-dibuka (bukan "menunggu email").
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && raw.__deleted === true) {
+    res.status(410).json({
+      error: "Email ini sudah dihapus dan tidak bisa dipakai lagi.",
+      terminal: true,
+    });
+    return;
+  }
+
   // Terima dua bentuk: array pesan (skema baru) ATAU objek tunggal (skema
   // lama peninggalan Worker yang belum diupdate) -- dibungkus jadi array
   // 1 elemen biar frontend selalu kerja dengan bentuk yang sama.
