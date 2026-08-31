@@ -104,10 +104,17 @@ async function getExistingMessages(env, localPart) {
   }
 }
 
+// Buang penanda "{{LINK|teks|href}}" jadi "teks" polos aja -- dipakai
+// buat snippet (ringkasan daftar inbox), yang gak butuh link beneran,
+// cuma butuh teksnya biar gampang dibaca sekilas.
+function stripLinkMarkers(text) {
+  return text.replace(/\{\{LINK\|([^|]*)\|[^}]*\}\}/g, "$1");
+}
+
 // Bikin ringkasan singkat 1 baris dari body (buang baris kosong berlebih,
 // potong ke panjang tertentu) buat ditampilin di daftar inbox.
 function buildSnippet(body) {
-  const oneLine = body.replace(/\s+/g, " ").trim();
+  const oneLine = stripLinkMarkers(body).replace(/\s+/g, " ").trim();
   if (oneLine.length <= SNIPPET_MAX_LENGTH) return oneLine;
   return oneLine.slice(0, SNIPPET_MAX_LENGTH).trim() + "…";
 }
@@ -137,6 +144,11 @@ function decodeBase64Safe(str) {
 
 // Buang tag HTML kasar-kasaran biar jadi teks polos yang enak dibaca di
 // inbox (bukan buat parsing serius, cukup buat tampilan snippet/body).
+// SEBELUM tag lain dibuang, link <a href="..">teks</a> diubah dulu jadi
+// format penanda "{{LINK|teks|href}}" (lihat linkifyAnchors) supaya
+// halaman inbox nanti bisa render ulang sebagai link yang BENERAN bisa
+// diklik + disalin, bukan jadi teks polos "teks" doang yang kehilangan
+// href-nya.
 function stripHtml(html) {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -152,6 +164,24 @@ function stripHtml(html) {
     .replace(/&#39;/gi, "'")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+// Ubah tiap <a href="URL">teks</a> di HTML jadi penanda teks
+// "{{LINK|teks|URL}}" -- dijalankan SEBELUM stripHtml supaya href-nya
+// gak ilang pas tag <a> dibuang. Penanda ini nanti di-parse lagi sama
+// index.html jadi <a> yang beneran bisa diklik + ada tombol salin di
+// sebelahnya.
+function linkifyAnchors(html) {
+  return html.replace(
+    /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (match, href, inner) => {
+      const text = stripHtml(inner).replace(/\s+/g, " ").trim() || href;
+      // Pipe "|" atau kurung kurawal di teks link (jarang, tapi jaga-jaga)
+      // diganti biar gak bentrok sama format penanda.
+      const safeText = text.replace(/[{}|]/g, " ");
+      return `{{LINK|${safeText}|${href}}}`;
+    }
+  );
 }
 
 // Pisahin raw email jadi bagian-bagian (kalau multipart), decode tiap
@@ -171,7 +201,7 @@ function extractReadableBody(rawText) {
     let body = bodyStart >= 0 ? rawText.slice(bodyStart + 4) : rawText;
     if (encoding.includes("base64")) body = decodeBase64Safe(body);
     else if (encoding.includes("quoted-printable")) body = decodeQuotedPrintable(body);
-    return contentType.includes("text/html") ? stripHtml(body) : body;
+    return contentType.includes("text/html") ? stripHtml(linkifyAnchors(body)) : body;
   }
 
   const boundary = boundaryMatch[1];
@@ -200,7 +230,7 @@ function extractReadableBody(rawText) {
   }
 
   if (plainText.trim()) return plainText.trim();
-  if (htmlText.trim()) return stripHtml(htmlText);
+  if (htmlText.trim()) return stripHtml(linkifyAnchors(htmlText));
   return rawText;
 }
 
@@ -210,7 +240,7 @@ function extractReadableBody(rawText) {
 // dsb). Ini cuma buat ngisi tombol "buka link" kalau ada -- SEMUA email
 // tetap disimpen & ditampilin walau gak ketemu link sama sekali.
 function extractBestLink(body) {
-  const urlRegex = /https?:\/\/[^\s"'<>\]\)]+/gi;
+  const urlRegex = /https?:\/\/[^\s"'<>\]\)\{\}]+/gi;
   const found = body.match(urlRegex) || [];
 
   const blacklist = [
