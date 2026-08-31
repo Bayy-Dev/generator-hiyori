@@ -58,6 +58,7 @@ export default {
         body: cleanBody,
         link: link || null,
         receivedAt: Date.now(),
+        read: false, // status baca disimpen di KV juga, biar sync antar device (lihat api/mark-read.js)
       };
 
       // Ambil riwayat pesan lama di key ini (kalau ada), lalu tambahin
