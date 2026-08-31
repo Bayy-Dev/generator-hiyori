@@ -166,6 +166,21 @@ function stripHtml(html) {
     .trim();
 }
 
+// Beberapa template email nulis "&" di URL (misal query string yang ada
+// beberapa parameter) sebagai entity HTML "&amp;" di source-nya. Kalau
+// gak di-decode dulu di sini, nanti pas index.html nge-escape ulang teks
+// buat ditampilin, "&amp;" itu bakal keescape lagi jadi "&amp;amp;" dan
+// URL-nya jadi rusak. Jadi href di-decode ke bentuk polos dulu sebelum
+// dibungkus ke penanda "{{LINK|...}}".
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&#x27;/gi, "'");
+}
+
 // Ubah tiap <a href="URL">teks</a> di HTML jadi penanda teks
 // "{{LINK|teks|URL}}" -- dijalankan SEBELUM stripHtml supaya href-nya
 // gak ilang pas tag <a> dibuang. Penanda ini nanti di-parse lagi sama
@@ -174,7 +189,8 @@ function stripHtml(html) {
 function linkifyAnchors(html) {
   return html.replace(
     /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    (match, href, inner) => {
+    (match, hrefRaw, inner) => {
+      const href = decodeHtmlEntities(hrefRaw);
       const text = stripHtml(inner).replace(/\s+/g, " ").trim() || href;
       // Pipe "|" atau kurung kurawal di teks link (jarang, tapi jaga-jaga)
       // diganti biar gak bentrok sama format penanda.
@@ -229,8 +245,15 @@ function extractReadableBody(rawText) {
     else if (contentType.startsWith("text/html")) htmlText += "\n" + decoded;
   }
 
-  if (plainText.trim()) return plainText.trim();
+  // PENTING: utamain versi HTML (kalau ada) walaupun email-nya multipart
+  // dan juga punya versi plain-text. Ini karena cuma versi HTML yang
+  // ngelewatin linkifyAnchors() -- versi plain-text cuma teks polos,
+  // link-nya (kalau ada) keluar sebagai URL mentah tanpa markup, jadi
+  // gak akan pernah jadi link "berlabel" yang bisa diklik+disalin.
+  // Plain-text cuma dipakai kalau emailnya EMANG gak punya versi HTML
+  // sama sekali.
   if (htmlText.trim()) return stripHtml(linkifyAnchors(htmlText));
+  if (plainText.trim()) return plainText.trim();
   return rawText;
 }
 
