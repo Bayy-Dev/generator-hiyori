@@ -22,10 +22,10 @@
 
 const DEBUG_FORWARD_TO = "akuntiktokku1225@gmail.com";
 
-// Berapa lama daftar pesan disimpen di KV sejak email TERAKHIR masuk,
-// sebelum otomatis kehapus (detik). Di-refresh tiap ada email baru, jadi
-// selama alamatnya masih aktif dipakai, inboxnya gak akan ke-expire.
-const KV_TTL_SECONDS = 600;
+// TTL DIHILANGKAN -- pesan di KV DISIMPEN SELAMANYA, gak ada auto-expire
+// sama sekali. Kalau nanti mau batesin lagi, tinggal isi ulang
+// KV_TTL_SECONDS dan pasang balik opsi expirationTtl di env.AM_KV.put()
+// di bawah.
 
 // Maksimal berapa pesan yang disimpen per alamat. Pesan paling lama
 // otomatis kebuang kalau udah kelebihan, biar value KV gak membengkak.
@@ -67,9 +67,8 @@ export default {
       const existing = await getExistingMessages(env, localPart);
       const updated = [newMessage, ...existing].slice(0, MAX_MESSAGES_PER_INBOX);
 
-      await env.AM_KV.put(localPart, JSON.stringify(updated), {
-        expirationTtl: KV_TTL_SECONDS,
-      });
+      // Tanpa expirationTtl = value ini gak akan pernah ke-expire otomatis.
+      await env.AM_KV.put(localPart, JSON.stringify(updated));
 
       console.log(
         `Tersimpan ke KV[${localPart}]: total ${updated.length} pesan, ${newMessage.link ? "link ketemu" : "tanpa link"}`
