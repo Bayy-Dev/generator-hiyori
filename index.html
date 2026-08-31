@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>hiyorimail — menunggu email verifikasi</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f7f2ea;
+    --card: #fffdf9;
+    --ink: #2e2438;
+    --ink-soft: #6b5c74;
+    --amber: #c08a3d;
+    --amber-soft: #f1e2c8;
+    --moss: #4f7a5b;
+    --moss-soft: #dfeee2;
+    --rule: #e4d9cc;
+    --shadow: 0 24px 60px -30px rgba(46, 36, 56, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(192, 138, 61, 0.08), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(79, 122, 91, 0.07), transparent 40%);
+    color: var(--ink);
+    font-family: "Work Sans", system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    padding: 30px 26px 26px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 22px;
+  }
+
+  .eyebrow .brand { display: flex; align-items: center; gap: 7px; }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 0 0 rgba(192, 138, 61, 0.5);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .live-dot.found { background: var(--moss); box-shadow: 0 0 0 0 rgba(79, 122, 91, 0.5); }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(192, 138, 61, 0.45); }
+    70% { box-shadow: 0 0 0 7px rgba(192, 138, 61, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(192, 138, 61, 0); }
+  }
+  .live-dot.found { animation-name: pulseFound; }
+  @keyframes pulseFound {
+    0% { box-shadow: 0 0 0 0 rgba(79, 122, 91, 0.45); }
+    70% { box-shadow: 0 0 0 7px rgba(79, 122, 91, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 122, 91, 0); }
+  }
+
+  .address-chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px dashed var(--rule);
+    border-radius: 12px;
+    padding: 12px 14px;
+    word-break: break-all;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 26px;
+  }
+
+  .address-chip button {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .address-chip button:hover { background: var(--amber-soft); color: var(--ink); }
+  .address-chip button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  /* --- Signature element: amplop bersegel yang "terbuka" pas link ketemu --- */
+  .seal-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 18px;
+  }
+
+  .envelope {
+    width: 92px;
+    height: 64px;
+    position: relative;
+  }
+
+  .envelope .body {
+    position: absolute;
+    inset: 0;
+    background: var(--card);
+    border: 2px solid var(--ink-soft);
+    border-radius: 6px;
+  }
+
+  .envelope .flap {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    height: 36px;
+    background: var(--card);
+    border: 2px solid var(--ink-soft);
+    border-radius: 6px 6px 0 0;
+    clip-path: polygon(0 0, 100% 0, 50% 68%);
+    transform-origin: top center;
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .seal {
+    position: absolute;
+    top: 26px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--amber);
+    border: 2px solid #fffdf9;
+    transition: background 0.5s ease, transform 0.5s ease, opacity 0.5s ease;
+    z-index: 2;
+  }
+
+  .letter {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 62%;
+    height: 40px;
+    background: #fff;
+    border: 1.5px solid var(--rule);
+    border-radius: 3px;
+    transform: translate(-50%, 6px);
+    opacity: 0;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s, opacity 0.5s ease 0.15s;
+    z-index: 1;
+  }
+
+  .card.is-found .envelope .flap { transform: rotateX(150deg); }
+  .card.is-found .seal { background: var(--moss); transform: translateX(-50%) scale(0.001); opacity: 0; }
+  .card.is-found .letter { transform: translate(-50%, -14px); opacity: 1; }
+
+  .status {
+    text-align: center;
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 1.35;
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+
+  .status-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 22px;
+  }
+
+  .progress-track {
+    height: 3px;
+    border-radius: 3px;
+    background: var(--rule);
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--amber);
+    border-radius: 3px;
+    transition: width 4s linear;
+  }
+  .card.is-found .progress-track { display: none; }
+
+  .divider { border: none; border-top: 1px solid var(--rule); margin: 0 0 18px; }
+
+  .inbox-row {
+    display: none;
+    background: var(--moss-soft);
+    border: 1px solid #c9e0cd;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+  .card.is-found .inbox-row { display: block; }
+
+  .inbox-row .field { display: flex; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+  .inbox-row .field:last-child { margin-bottom: 0; }
+  .inbox-row .label { flex: none; width: 58px; color: var(--ink-soft); font-weight: 500; }
+  .inbox-row .value { color: var(--ink); word-break: break-word; }
+  .inbox-row .value.mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 13px 16px;
+    border-radius: 12px;
+    border: none;
+    font-family: "Work Sans", sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .btn-primary {
+    background: var(--moss);
+    color: #fdfaf5;
+    display: none;
+    box-shadow: 0 10px 24px -12px rgba(79, 122, 91, 0.65);
+  }
+  .btn-primary:hover { transform: translateY(-1px); }
+  .card.is-found .btn-primary { display: block; }
+
+  .btn-ghost {
+    margin-top: 10px;
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--rule);
+  }
+  .btn-ghost:hover { background: var(--paper); color: var(--ink); }
+
+  .btn-refresh-spin {
+    display: inline-block;
+    transition: transform 0.5s ease;
+  }
+  .spinning { animation: spin 0.6s linear; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    display: none;
+    background: #fbeaea;
+    border: 1px solid #e7c3c3;
+    color: #7a2c2c;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    margin-bottom: 18px;
+  }
+  .error-box.show { display: block; }
+
+  .no-email {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 18px;
+    font-family: "IBM Plex Mono", monospace;
+    letter-spacing: 0.03em;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="eyebrow">
+    <span class="brand">✉ hiyorimail<span id="liveDot" class="live-dot"></span></span>
+    <span id="clock">--:--:--</span>
+  </div>
+
+  <div id="mainContent">
+    <div id="noEmailBox" class="no-email" style="display:none;">
+      Gak ada alamat email yang ditentukan.<br />Buka halaman ini lewat link yang dikasih bot ya.
+    </div>
+
+    <div id="withEmailBox" style="display:none;">
+      <div class="address-chip">
+        <span id="emailText">-</span>
+        <button id="copyBtn" type="button">SALIN</button>
+      </div>
+
+      <div class="seal-wrap">
+        <div class="envelope">
+          <div class="letter"></div>
+          <div class="body"></div>
+          <div class="flap"></div>
+          <div class="seal"></div>
+        </div>
+      </div>
+
+      <p class="status" id="statusText">Menunggu email masuk…</p>
+      <p class="status-sub" id="statusSub">Halaman ini otomatis cek ulang tiap beberapa detik.</p>
+
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <hr class="divider" />
+
+      <div class="inbox-row" id="inboxRow">
+        <div class="field"><span class="label">Dari</span><span class="value" id="fromText">-</span></div>
+        <div class="field"><span class="label">Subjek</span><span class="value" id="subjectText">-</span></div>
+        <div class="field"><span class="label">Waktu</span><span class="value mono" id="timeText">-</span></div>
+      </div>
+
+      <a href="#" target="_blank" rel="noopener" class="btn btn-primary" id="openLinkBtn">Buka Link Verifikasi →</a>
+      <button type="button" class="btn btn-ghost" id="refreshBtn">
+        <span class="btn-refresh-spin" id="refreshIcon">↻</span> Cek sekarang
+      </button>
+    </div>
+  </div>
+
+  <footer>generator.hiyorimail.biz.id</footer>
+</div>
+
+<script>
+(function () {
+  var POLL_MS = 4000;
+  var params = new URLSearchParams(window.location.search);
+  var email = (params.get("email") || "").trim().toLowerCase();
+  var sig = (params.get("sig") || "").trim();
+  var card = document.getElementById("card");
+
+  function tickClock() {
+    var d = new Date();
+    document.getElementById("clock").textContent = d.toLocaleTimeString("id-ID", { hour12: false });
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  function showTerminalError(msg) {
+    document.getElementById("withEmailBox").style.display = "none";
+    var box = document.getElementById("noEmailBox");
+    box.textContent = msg;
+    box.style.display = "block";
+  }
+
+  if (!email || email.indexOf("@") === -1) {
+    showTerminalError("Gak ada alamat email yang ditentukan. Buka halaman ini lewat link yang dikasih bot ya.");
+    return;
+  }
+
+  if (!sig) {
+    // Tanpa tanda tangan, jangan repot-repot nge-hit API -- pasti ditolak.
+    showTerminalError("Tautan ini gak lengkap/gak valid. Buka halaman ini lewat link yang dikasih bot ya.");
+    return;
+  }
+
+  document.getElementById("withEmailBox").style.display = "block";
+  document.getElementById("emailText").textContent = email;
+
+  var liveDot = document.getElementById("liveDot");
+  var statusText = document.getElementById("statusText");
+  var statusSub = document.getElementById("statusSub");
+  var progressFill = document.getElementById("progressFill");
+  var errorBox = document.getElementById("errorBox");
+  var refreshBtn = document.getElementById("refreshBtn");
+  var refreshIcon = document.getElementById("refreshIcon");
+  var pollTimer = null;
+  var progressTimer = null;
+  var found = false;
+
+  document.getElementById("copyBtn").addEventListener("click", function () {
+    navigator.clipboard.writeText(email).then(function () {
+      var btn = document.getElementById("copyBtn");
+      var original = btn.textContent;
+      btn.textContent = "TERSALIN";
+      setTimeout(function () { btn.textContent = original; }, 1500);
+    });
+  });
+
+  function fmtTime(ms) {
+    if (!ms) return "-";
+    var d = new Date(ms);
+    return d.toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " WIB";
+  }
+
+  function startProgress() {
+    progressFill.style.transition = "none";
+    progressFill.style.width = "0%";
+    // Paksa reflow biar transition ke-reset sebelum dianimasiin lagi.
+    void progressFill.offsetWidth;
+    progressFill.style.transition = "width " + POLL_MS + "ms linear";
+    progressFill.style.width = "100%";
+  }
+
+  function setError(msg) {
+    if (!msg) {
+      errorBox.classList.remove("show");
+      errorBox.textContent = "";
+      return;
+    }
+    errorBox.classList.add("show");
+    errorBox.textContent = msg;
+  }
+
+  function renderFound(data) {
+    found = true;
+    card.classList.add("is-found");
+    liveDot.classList.add("found");
+    setError(null);
+
+    statusText.textContent = "Link verifikasi diterima!";
+    statusSub.textContent = "Klik tombol di bawah buat login ke Alight Motion.";
+    var openBtn = document.getElementById("openLinkBtn");
+    openBtn.href = data.link;
+    openBtn.style.display = "";
+    document.getElementById("inboxRow").style.display = "";
+
+    document.getElementById("fromText").textContent = data.from || "-";
+    document.getElementById("subjectText").textContent = data.subject || "-";
+    document.getElementById("timeText").textContent = fmtTime(data.receivedAt);
+  }
+
+  // Email-nya udah masuk, tapi Worker gagal nemuin link di isinya. Ini
+  // BUKAN status final -- tetep lanjut polling siapa tau ada email susulan
+  // (misal resend) yang link-nya kebaca.
+  function renderReceivedNoLink(data) {
+    setError(null);
+    statusText.textContent = "Email diterima, tapi link belum ketemu.";
+    statusSub.textContent = "Masih nunggu, siapa tau ada email susulan yang link-nya kebaca.";
+    document.getElementById("openLinkBtn").style.display = "none";
+    document.getElementById("inboxRow").style.display = "block";
+    document.getElementById("fromText").textContent = data.from || "-";
+    document.getElementById("subjectText").textContent = data.subject || "-";
+    document.getElementById("timeText").textContent = fmtTime(data.receivedAt);
+  }
+
+  function renderWaiting() {
+    if (found) return; // sekali link ketemu, gak usah balik ke tampilan nunggu
+    statusText.textContent = "Menunggu email masuk…";
+    statusSub.textContent = "Halaman ini otomatis cek ulang tiap beberapa detik.";
+    document.getElementById("inboxRow").style.display = "none";
+  }
+
+  async function checkOnce(manual) {
+    if (manual) refreshIcon.classList.add("spinning");
+    try {
+      var qs = "email=" + encodeURIComponent(email) + "&sig=" + encodeURIComponent(sig);
+      var res = await fetch("/api/inbox?" + qs, { cache: "no-store" });
+      var data = await res.json();
+
+      if (!res.ok) {
+        if (data.terminal) {
+          // Format salah / signature gak valid -- gak akan pernah berhasil
+          // walau di-retry, jadi berhentiin polling total.
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+          if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+          showTerminalError(data.error || "Tautan ini gak valid.");
+          return;
+        }
+        setError(data.error || "Gagal cek inbox, coba lagi.");
+        return;
+      }
+
+      if (data.found && data.link) {
+        renderFound(data);
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+        progressFill.style.width = "0%";
+      } else if (data.found && !data.link) {
+        renderReceivedNoLink(data);
+      } else {
+        renderWaiting();
+      }
+    } catch (e) {
+      setError("Gagal konek ke server. Cek koneksi internet kamu.");
+    } finally {
+      if (manual) setTimeout(function () { refreshIcon.classList.remove("spinning"); }, 600);
+    }
+  }
+
+  refreshBtn.addEventListener("click", function () { checkOnce(true); });
+
+  checkOnce(false);
+  startProgress();
+  pollTimer = setInterval(function () { checkOnce(false); }, POLL_MS);
+  progressTimer = setInterval(startProgress, POLL_MS);
+})();
+</script>
+
+</body>
+</html>
