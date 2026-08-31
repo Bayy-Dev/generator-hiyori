@@ -7,6 +7,30 @@
  * Variables), dibaca di sini lewat process.env, dan yang dibalikin ke client
  * cuma data emailnya (from/subject/link/receivedAt), bukan token apapun.
  *
+ * SKEMA KV BARU (buat dukung multi-pesan/inbox beneran, bukan cuma 1 link):
+ *   Value yang disimpan di KV buat tiap key (local-part email) sekarang
+ *   HARUS berupa JSON ARRAY berisi objek pesan, terbaru duluan, misal:
+ *
+ *   [
+ *     {
+ *       "id": "1798675629000-ab12cd",   // unik per pesan, dipakai buat state baca/belum di browser
+ *       "from": "noreply@alight-creative.firebaseapp.com",
+ *       "subject": "Login ke Alight Creative yang diminta pada 2026 August 31 00:47 UTC",
+ *       "snippet": "Kami menerima permintaan untuk login ke Alight Creative...",
+ *       "body": "<isi lengkap email, boleh plain text atau html sederhana>",
+ *       "link": "https://...",           // boleh null kalau gak ada link
+ *       "receivedAt": 1798675629000
+ *     },
+ *     { ...pesan sebelumnya... }
+ *   ]
+ *
+ *   PENTING: Worker "am-gen-mail" (di luar file ini, gak ada di repo ini)
+ *   WAJIB diubah supaya nge-APPEND pesan baru ke depan array ini tiap ada
+ *   email masuk (bukan nge-overwrite value lama kayak sebelumnya). Kalau
+ *   Worker-nya masih nulis 1 objek polos (bukan array), endpoint ini tetap
+ *   jalan (lihat fallback di bawah) tapi inbox cuma bakal nampilin 1 pesan
+ *   terakhir selamanya -- gak akan pernah keliatan riwayat email lama.
+ *
  * PROTEKSI "SIGNED LINK": biar orang gak bisa asal ketik/tebak alamat email
  * buat ngintip inbox orang lain, tiap request WAJIB nyertain `sig` --
  * HMAC-SHA256(LINK_SIGNING_SECRET, email) yang cuma bisa dibikin sama pihak
@@ -103,20 +127,35 @@ module.exports = async (req, res) => {
     return;
   }
 
-  let data;
+  let raw;
   try {
     const text = await cfRes.text();
-    data = JSON.parse(text);
+    raw = JSON.parse(text);
   } catch (e) {
     res.status(502).json({ error: "Isi KV gak kebaca sebagai JSON." });
     return;
   }
 
+  // Terima dua bentuk: array pesan (skema baru) ATAU objek tunggal (skema
+  // lama peninggalan Worker yang belum diupdate) -- dibungkus jadi array
+  // 1 elemen biar frontend selalu kerja dengan bentuk yang sama.
+  const list = Array.isArray(raw) ? raw : raw && typeof raw === "object" ? [raw] : [];
+
+  const messages = list
+    .filter((m) => m && typeof m === "object")
+    .map((m, i) => ({
+      id: String(m.id || m.receivedAt || i),
+      from: m.from || null,
+      subject: m.subject || null,
+      snippet: m.snippet || null,
+      body: m.body || null,
+      link: m.link || null,
+      receivedAt: m.receivedAt || null,
+    }))
+    .sort((a, b) => (b.receivedAt || 0) - (a.receivedAt || 0));
+
   res.status(200).json({
-    found: true,
-    from: data.from || null,
-    subject: data.subject || null,
-    link: data.link || null,
-    receivedAt: data.receivedAt || null,
+    found: messages.length > 0,
+    messages: messages,
   });
 };
