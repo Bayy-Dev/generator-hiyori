@@ -38,9 +38,16 @@
     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   }
 
+  html {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
   html, body {
     margin: 0;
     min-height: 100vh;
+    max-width: 100%;
+    overflow-x: hidden;
     background: var(--paper);
     background-image:
       radial-gradient(circle at 15% 10%, rgba(192, 138, 61, 0.08), transparent 40%),
@@ -56,6 +63,7 @@
   .card {
     width: 100%;
     max-width: 560px;
+    overflow: hidden;
     background: var(--card);
     border: 1px solid var(--rule);
     border-radius: 22px;
@@ -290,6 +298,7 @@
     color: var(--ink);
     white-space: pre-wrap;
     word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .msg-inline-link {
@@ -359,7 +368,7 @@
     letter-spacing: 0.03em;
   }
 
-  /* ---------- MOBILE (layar sempit) ---------- */
+  /* ---------- MOBILE (dasar, ≤480px) ---------- */
   @media (max-width: 480px) {
     html, body { padding: 16px 10px; }
     .card { padding: 20px 16px 18px; border-radius: 16px; }
@@ -375,6 +384,18 @@
     .msg-detail .label { width: 46px; font-size: 11.5px; }
     .msg-body { font-size: 12.5px; }
     .msg-open-link { width: 100%; text-align: center; }
+  }
+
+  /* ---------- TABLET (481px–1024px) ---------- */
+  @media (min-width: 481px) and (max-width: 1024px) {
+    .card { max-width: 620px; padding: 34px 32px 30px; }
+    .msg-row { padding: 15px 16px; }
+  }
+
+  /* ---------- DESKTOP (≥1025px) ---------- */
+  @media (min-width: 1025px) {
+    .card { max-width: 640px; padding: 36px 34px 32px; }
+    html, body { padding: 48px 16px; }
   }
 </style>
 </head>
@@ -458,25 +479,14 @@
   var refreshBtn = document.getElementById("refreshBtn");
   var pollTimer = null;
 
-  // ---- status baca disimpan per-browser (localStorage), per alamat email ----
-  var READ_KEY = "hiyorimail_read::" + email;
+  // ---- status baca disimpen di SERVER (KV), sync ke semua device ----
+  // "pendingRead" cuma buat optimistic UI: pas msg diklik, langsung
+  // ditandain dibaca di layar SEBELUM request ke server selesai, biar
+  // gak keliatan lag. Nilai aslinya tetep dari field m.read yang dikirim
+  // server tiap poll -- begitu poll berikutnya balik, pendingRead ini gak
+  // dipake lagi karena m.read dari server udah true juga.
+  var pendingRead = new Set();
   var openId = null; // pesan yang lagi dibuka/di-expand
-
-  function loadReadSet() {
-    try {
-      var raw = localStorage.getItem(READ_KEY);
-      var arr = raw ? JSON.parse(raw) : [];
-      return new Set(Array.isArray(arr) ? arr : []);
-    } catch (e) {
-      return new Set();
-    }
-  }
-  function saveReadSet(set) {
-    try {
-      localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
-    } catch (e) { /* abaikan kalau storage penuh/disabled */ }
-  }
-  var readSet = loadReadSet();
 
   document.getElementById("copyBtn").addEventListener("click", function () {
     navigator.clipboard.writeText(email).then(function () {
@@ -525,10 +535,24 @@
   }
 
   function markRead(id) {
-    if (!readSet.has(id)) {
-      readSet.add(id);
-      saveReadSet(readSet);
-    }
+    if (pendingRead.has(id)) return;
+    pendingRead.add(id);
+
+    var qs = "email=" + encodeURIComponent(email) + "&sig=" + encodeURIComponent(sig);
+    fetch("/api/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, sig: sig, id: id }),
+    }).catch(function () {
+      // Gagal kirim ke server (misal lagi offline) -- gak masalah, poll
+      // berikutnya bakal nyoba lagi kalau msg-nya masih kebuka & di-toggle
+      // ulang. Optimistic state di layar tetep dibiarin nyala biar gak
+      // "flicker" balik ke belum-dibaca.
+    });
+  }
+
+  function isRead(m) {
+    return !!m.read || pendingRead.has(m.id);
   }
 
   function toggleMessage(id) {
@@ -541,7 +565,7 @@
 
   function render(messages) {
     lastMessages = messages;
-    var unreadCount = messages.filter(function (m) { return !readSet.has(m.id); }).length;
+    var unreadCount = messages.filter(function (m) { return !isRead(m); }).length;
 
     if (messages.length === 0) {
       emptyInbox.style.display = "block";
@@ -557,9 +581,9 @@
       (unreadCount > 0 ? " · <strong>" + unreadCount + "</strong> belum dibaca" : " · semua sudah dibaca");
 
     var html = messages.map(function (m) {
-      var isRead = readSet.has(m.id);
+      var isReadNow = isRead(m);
       var isOpen = openId === m.id;
-      var stateClass = (isRead ? "is-read" : "is-unread") + (isOpen ? " is-open" : "");
+      var stateClass = (isReadNow ? "is-read" : "is-unread") + (isOpen ? " is-open" : "");
       var bodyHtml = m.body
         ? '<div class="msg-body">' + renderBodyWithLinks(m.body) + "</div>"
         : "";
