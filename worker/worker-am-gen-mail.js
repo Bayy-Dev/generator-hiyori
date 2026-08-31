@@ -35,6 +35,27 @@ const MAX_MESSAGES_PER_INBOX = 20;
 const SNIPPET_MAX_LENGTH = 160;
 
 export default {
+  // Endpoint HTTP dipanggil dari bot Telegram waktu user tap "Hapus
+  // Email". BEDA sama sebelumnya: sekarang bukan AM_KV.delete() polos
+  // (yang cuma ngosongin, alamatnya masih bisa "hidup lagi" begitu ada
+  // email baru masuk) -- tapi nulis PENANDA "__deleted" ke key itu.
+  // Penanda ini dicek juga di email() handler di bawah (biar email baru
+  // yang nyasar ke alamat itu diabaikan, gak dihidupin lagi) dan di
+  // api/inbox.js situs generator (biar halaman inbox-nya nolak dibuka).
+  //
+  // Request: POST /delete
+  //   body JSON: { "email": "xxxxx@hiyorimail.biz.id", "sig": "<hmac hex 24 char>" }
+  // Response: { "ok": true } atau { "ok": false, "error": "..." }
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/delete" && request.method === "POST") {
+      return handleDelete(request, env);
+    }
+
+    return new Response("Not found", { status: 404 });
+  },
+
   async email(message, env, ctx) {
     try {
       const rawText = await new Response(message.raw).text();
@@ -42,6 +63,15 @@ export default {
 
       if (!localPart) {
         console.log("Gak ada local-part di message.to, skip.");
+        return;
+      }
+
+      // Kalau alamat ini udah ditandai "dihapus" (lewat tombol Hapus di
+      // bot), JANGAN simpen email baru apapun -- biarin tombstone-nya
+      // tetap ada, alamatnya dianggap mati permanen.
+      const existingRaw = await env.AM_KV.get(localPart);
+      if (isDeletedTombstone(existingRaw)) {
+        console.log(`Key ${localPart} sudah ditandai dihapus, email baru diabaikan.`);
         return;
       }
 
@@ -65,7 +95,7 @@ export default {
       // pesan baru di depan. SETIAP email disimpen -- gak ada filter
       // "cuma yang ada link verifikasinya doang", jadi email apapun
       // (dari layanan manapun) bakal ikut muncul di inbox.
-      const existing = await getExistingMessages(env, localPart);
+      const existing = parseMessages(existingRaw);
       const updated = [newMessage, ...existing].slice(0, MAX_MESSAGES_PER_INBOX);
 
       // Tanpa expirationTtl = value ini gak akan pernah ke-expire otomatis.
@@ -88,11 +118,26 @@ export default {
   },
 };
 
-// Baca array pesan lama dari KV. Kalau kosong, atau formatnya masih
-// peninggalan versi lama (1 objek polos, bukan array), tetep dihandle
-// dengan aman -- riwayat lama (kalau ada) dianggap 1 pesan pertama.
-async function getExistingMessages(env, localPart) {
-  const raw = await env.AM_KV.get(localPart);
+// Cek apakah value mentah dari KV itu tombstone "__deleted" (dibikin
+// oleh handleDelete di bawah). Dicek dari string mentah biar bisa
+// dipanggil sebelum ikut di-parse jadi array pesan.
+function isDeletedTombstone(raw) {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    return !!(parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.__deleted === true);
+  } catch {
+    return false;
+  }
+}
+
+// Baca array pesan lama dari KV (raw string, hasil AM_KV.get). Kalau
+// kosong, atau formatnya masih peninggalan versi lama (1 objek polos,
+// bukan array), tetep dihandle dengan aman -- riwayat lama (kalau ada)
+// dianggap 1 pesan pertama. Tombstone udah dicek terpisah di
+// isDeletedTombstone() SEBELUM fungsi ini dipanggil, jadi di sini gak
+// perlu dicek lagi.
+function parseMessages(raw) {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -293,4 +338,85 @@ function extractBestLink(body) {
   // link verifikasi (yang ada token/id-nya) lebih panjang dari link generik.
   candidates.sort((a, b) => b.length - a.length);
   return candidates[0];
+}
+
+// ---- Endpoint /delete ----
+
+async function handleDelete(request, env) {
+  if (!env.LINK_SIGNING_SECRET) {
+    console.error("LINK_SIGNING_SECRET belum di-set sebagai secret di Worker ini.");
+    return jsonResponse({ ok: false, error: "server_misconfigured" }, 500);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ ok: false, error: "invalid_json" }, 400);
+  }
+
+  const email = (body && body.email ? String(body.email) : "").toLowerCase().trim();
+  const sig = body && body.sig ? String(body.sig) : "";
+
+  if (!email || !sig) {
+    return jsonResponse({ ok: false, error: "missing_params" }, 400);
+  }
+
+  const expected = await computeSignatureWebCrypto(email, env.LINK_SIGNING_SECRET);
+  if (!timingSafeEqual(expected, sig)) {
+    return jsonResponse({ ok: false, error: "invalid_signature" }, 403);
+  }
+
+  const localPart = email.split("@")[0];
+  if (!localPart) {
+    return jsonResponse({ ok: false, error: "invalid_email" }, 400);
+  }
+
+  // TOMBSTONE, bukan AM_KV.delete() polos: dengan .delete() key-nya cuma
+  // ilang, dan begitu ada email baru masuk lagi ke alamat itu, worker
+  // bakal bikin ulang key-nya (alamat "hidup lagi"). Dengan nulis
+  // penanda { __deleted: true } di sini, sekaligus dicek di email()
+  // handler (skip simpan pesan baru) DAN di api/inbox.js situs (tolak
+  // dibuka), alamatnya beneran mati permanen.
+  await env.AM_KV.put(
+    localPart,
+    JSON.stringify({ __deleted: true, deletedAt: Date.now() })
+  );
+
+  return jsonResponse({ ok: true, deleted: localPart });
+}
+
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Sama persis rumusnya dengan computeSignature() di genmail.js (bot) dan
+// api/inbox.js (situs generator): HMAC-SHA256(secret, email), 24 hex
+// pertama. Bedanya di sini pakai Web Crypto (SubtleCrypto) karena
+// Worker gak punya modul "crypto" Node.
+async function computeSignatureWebCrypto(email, secret) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sigBuf = await crypto.subtle.sign("HMAC", key, enc.encode(email));
+  return [...new Uint8Array(sigBuf)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 24);
+}
+
+// Constant-time string compare, biar gak bocor info lewat timing attack.
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
