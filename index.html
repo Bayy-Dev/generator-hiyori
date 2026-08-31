@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>hiyorimail — menunggu email verifikasi</title>
+<title>hiyorimail — kotak masuk</title>
 <meta name="robots" content="noindex, nofollow" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,6 +20,16 @@
     --moss-soft: #dfeee2;
     --rule: #e4d9cc;
     --shadow: 0 24px 60px -30px rgba(46, 36, 56, 0.35);
+
+    /* Warna status inbox: hijau tua = belum dibaca, biru tua = sudah dibaca */
+    --unread-bg: #1f4d3a;
+    --unread-bg-hover: #26593f;
+    --unread-fg: #eafaf0;
+    --unread-fg-soft: #b9d9c6;
+    --read-bg: #1c2a44;
+    --read-bg-hover: #22314f;
+    --read-fg: #e7ecf8;
+    --read-fg-soft: #9fb0d1;
   }
 
   * { box-sizing: border-box; }
@@ -38,14 +48,14 @@
     color: var(--ink);
     font-family: "Work Sans", system-ui, sans-serif;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 32px 16px;
   }
 
   .card {
     width: 100%;
-    max-width: 460px;
+    max-width: 560px;
     background: var(--card);
     border: 1px solid var(--rule);
     border-radius: 22px;
@@ -102,7 +112,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 26px;
+    margin-bottom: 18px;
   }
 
   .address-chip button {
@@ -120,163 +130,36 @@
   .address-chip button:hover { background: var(--amber-soft); color: var(--ink); }
   .address-chip button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
-  /* --- Signature element: amplop bersegel yang "terbuka" pas link ketemu --- */
-  .seal-wrap {
+  .toolbar {
     display: flex;
-    justify-content: center;
-    margin: 4px 0 18px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
   }
 
-  .envelope {
-    width: 92px;
-    height: 64px;
-    position: relative;
-  }
-
-  .envelope .body {
-    position: absolute;
-    inset: 0;
-    background: var(--card);
-    border: 2px solid var(--ink-soft);
-    border-radius: 6px;
-  }
-
-  .envelope .flap {
-    position: absolute;
-    top: -1px;
-    left: -1px;
-    right: -1px;
-    height: 36px;
-    background: var(--card);
-    border: 2px solid var(--ink-soft);
-    border-radius: 6px 6px 0 0;
-    clip-path: polygon(0 0, 100% 0, 50% 68%);
-    transform-origin: top center;
-    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .seal {
-    position: absolute;
-    top: 26px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--amber);
-    border: 2px solid #fffdf9;
-    transition: background 0.5s ease, transform 0.5s ease, opacity 0.5s ease;
-    z-index: 2;
-  }
-
-  .letter {
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    width: 62%;
-    height: 40px;
-    background: #fff;
-    border: 1.5px solid var(--rule);
-    border-radius: 3px;
-    transform: translate(-50%, 6px);
-    opacity: 0;
-    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s, opacity 0.5s ease 0.15s;
-    z-index: 1;
-  }
-
-  .card.is-found .envelope .flap { transform: rotateX(150deg); }
-  .card.is-found .seal { background: var(--moss); transform: translateX(-50%) scale(0.001); opacity: 0; }
-  .card.is-found .letter { transform: translate(-50%, -14px); opacity: 1; }
-
-  .status {
-    text-align: center;
-    font-family: "Fraunces", Georgia, serif;
-    font-weight: 500;
-    font-size: 20px;
-    line-height: 1.35;
-    color: var(--ink);
-    margin: 0 0 6px;
-  }
-
-  .status-sub {
-    text-align: center;
-    font-size: 13px;
+  .toolbar .count {
+    font-size: 12.5px;
     color: var(--ink-soft);
-    margin: 0 0 22px;
   }
+  .toolbar .count strong { color: var(--ink); }
 
-  .progress-track {
-    height: 3px;
-    border-radius: 3px;
-    background: var(--rule);
-    overflow: hidden;
-    margin-bottom: 22px;
-  }
-  .progress-fill {
-    height: 100%;
-    width: 0%;
-    background: var(--amber);
-    border-radius: 3px;
-    transition: width 4s linear;
-  }
-  .card.is-found .progress-track { display: none; }
-
-  .divider { border: none; border-top: 1px solid var(--rule); margin: 0 0 18px; }
-
-  .inbox-row {
-    display: none;
-    background: var(--moss-soft);
-    border: 1px solid #c9e0cd;
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 18px;
-  }
-  .card.is-found .inbox-row { display: block; }
-
-  .inbox-row .field { display: flex; gap: 8px; font-size: 13px; margin-bottom: 6px; }
-  .inbox-row .field:last-child { margin-bottom: 0; }
-  .inbox-row .label { flex: none; width: 58px; color: var(--ink-soft); font-weight: 500; }
-  .inbox-row .value { color: var(--ink); word-break: break-word; }
-  .inbox-row .value.mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
-
-  .btn {
-    display: block;
-    width: 100%;
-    text-align: center;
-    padding: 13px 16px;
-    border-radius: 12px;
-    border: none;
-    font-family: "Work Sans", sans-serif;
-    font-size: 14.5px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-  }
-  .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-  .btn-primary {
-    background: var(--moss);
-    color: #fdfaf5;
-    display: none;
-    box-shadow: 0 10px 24px -12px rgba(79, 122, 91, 0.65);
-  }
-  .btn-primary:hover { transform: translateY(-1px); }
-  .card.is-found .btn-primary { display: block; }
-
-  .btn-ghost {
-    margin-top: 10px;
-    background: transparent;
-    color: var(--ink-soft);
+  .icon-btn {
     border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    font-family: "Work Sans", sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
   }
-  .btn-ghost:hover { background: var(--paper); color: var(--ink); }
-
-  .btn-refresh-spin {
-    display: inline-block;
-    transition: transform 0.5s ease;
-  }
-  .spinning { animation: spin 0.6s linear; }
+  .icon-btn:hover { background: var(--amber-soft); color: var(--ink); }
+  .icon-btn .spin { display: inline-block; transition: transform 0.5s ease; }
+  .icon-btn.spinning .spin { animation: spin 0.6s linear; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .error-box {
@@ -287,9 +170,147 @@
     border-radius: 12px;
     padding: 12px 14px;
     font-size: 12.5px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
   }
   .error-box.show { display: block; }
+
+  /* ---------- INBOX LIST ---------- */
+  .inbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .msg {
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.4);
+  }
+
+  .msg-row {
+    width: 100%;
+    text-align: left;
+    border: none;
+    cursor: pointer;
+    padding: 13px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: "Work Sans", sans-serif;
+    transition: background 0.15s ease;
+  }
+
+  /* Belum dibaca = hijau tua */
+  .msg.is-unread .msg-row {
+    background: var(--unread-bg);
+    color: var(--unread-fg);
+  }
+  .msg.is-unread .msg-row:hover { background: var(--unread-bg-hover); }
+  .msg.is-unread .msg-from { color: var(--unread-fg); font-weight: 600; }
+  .msg.is-unread .msg-subject { color: var(--unread-fg); font-weight: 600; }
+  .msg.is-unread .msg-snippet { color: var(--unread-fg-soft); }
+  .msg.is-unread .msg-time { color: var(--unread-fg-soft); }
+
+  /* Sudah dibaca = biru tua */
+  .msg.is-read .msg-row {
+    background: var(--read-bg);
+    color: var(--read-fg);
+  }
+  .msg.is-read .msg-row:hover { background: var(--read-bg-hover); }
+  .msg.is-read .msg-from { color: var(--read-fg-soft); font-weight: 500; }
+  .msg.is-read .msg-subject { color: var(--read-fg-soft); font-weight: 500; }
+  .msg.is-read .msg-snippet { color: var(--read-fg-soft); opacity: 0.75; }
+  .msg.is-read .msg-time { color: var(--read-fg-soft); }
+
+  .msg-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ffffff;
+    opacity: 0.9;
+  }
+  .msg.is-read .msg-dot { opacity: 0; }
+
+  .msg-main { flex: 1; min-width: 0; }
+  .msg-line1 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .msg-from {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .msg-time {
+    flex: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+  }
+  .msg-subject {
+    font-size: 13.5px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .msg-snippet {
+    font-size: 12px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .msg-detail {
+    display: none;
+    background: var(--card);
+    color: var(--ink);
+    border-top: 1px solid var(--rule);
+    padding: 14px 16px 16px;
+  }
+  .msg.is-open .msg-detail { display: block; }
+
+  .msg-detail .field { display: flex; gap: 8px; font-size: 12.5px; margin-bottom: 6px; }
+  .msg-detail .label { flex: none; width: 54px; color: var(--ink-soft); font-weight: 500; }
+  .msg-detail .value { color: var(--ink); word-break: break-word; }
+  .msg-detail .value.mono { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+
+  .msg-body {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--rule);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .msg-open-link {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: var(--moss);
+    color: #fdfaf5;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .msg-open-link:hover { transform: translateY(-1px); }
+
+  .empty-inbox {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13px;
+    padding: 26px 10px;
+    border: 1px dashed var(--rule);
+    border-radius: 14px;
+  }
 
   .no-email {
     text-align: center;
@@ -327,34 +348,18 @@
         <button id="copyBtn" type="button">SALIN</button>
       </div>
 
-      <div class="seal-wrap">
-        <div class="envelope">
-          <div class="letter"></div>
-          <div class="body"></div>
-          <div class="flap"></div>
-          <div class="seal"></div>
-        </div>
+      <div class="toolbar">
+        <span class="count" id="countText">Menunggu email masuk…</span>
+        <button type="button" class="icon-btn" id="refreshBtn">
+          <span class="spin" id="refreshIcon">↻</span> Cek sekarang
+        </button>
       </div>
-
-      <p class="status" id="statusText">Menunggu email masuk…</p>
-      <p class="status-sub" id="statusSub">Halaman ini otomatis cek ulang tiap beberapa detik.</p>
-
-      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
 
       <div class="error-box" id="errorBox"></div>
 
-      <hr class="divider" />
+      <div id="emptyInbox" class="empty-inbox">Belum ada email masuk. Halaman ini otomatis cek ulang tiap beberapa detik.</div>
 
-      <div class="inbox-row" id="inboxRow">
-        <div class="field"><span class="label">Dari</span><span class="value" id="fromText">-</span></div>
-        <div class="field"><span class="label">Subjek</span><span class="value" id="subjectText">-</span></div>
-        <div class="field"><span class="label">Waktu</span><span class="value mono" id="timeText">-</span></div>
-      </div>
-
-      <a href="#" target="_blank" rel="noopener" class="btn btn-primary" id="openLinkBtn">Buka Link Verifikasi →</a>
-      <button type="button" class="btn btn-ghost" id="refreshBtn">
-        <span class="btn-refresh-spin" id="refreshIcon">↻</span> Cek sekarang
-      </button>
+      <div class="inbox-list" id="inboxList"></div>
     </div>
   </div>
 
@@ -389,7 +394,6 @@
   }
 
   if (!sig) {
-    // Tanpa tanda tangan, jangan repot-repot nge-hit API -- pasti ditolak.
     showTerminalError("Tautan ini gak lengkap/gak valid. Buka halaman ini lewat link yang dikasih bot ya.");
     return;
   }
@@ -398,15 +402,32 @@
   document.getElementById("emailText").textContent = email;
 
   var liveDot = document.getElementById("liveDot");
-  var statusText = document.getElementById("statusText");
-  var statusSub = document.getElementById("statusSub");
-  var progressFill = document.getElementById("progressFill");
+  var countText = document.getElementById("countText");
   var errorBox = document.getElementById("errorBox");
+  var emptyInbox = document.getElementById("emptyInbox");
+  var inboxList = document.getElementById("inboxList");
   var refreshBtn = document.getElementById("refreshBtn");
-  var refreshIcon = document.getElementById("refreshIcon");
   var pollTimer = null;
-  var progressTimer = null;
-  var found = false;
+
+  // ---- status baca disimpan per-browser (localStorage), per alamat email ----
+  var READ_KEY = "hiyorimail_read::" + email;
+  var openId = null; // pesan yang lagi dibuka/di-expand
+
+  function loadReadSet() {
+    try {
+      var raw = localStorage.getItem(READ_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+  function saveReadSet(set) {
+    try {
+      localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
+    } catch (e) { /* abaikan kalau storage penuh/disabled */ }
+  }
+  var readSet = loadReadSet();
 
   document.getElementById("copyBtn").addEventListener("click", function () {
     navigator.clipboard.writeText(email).then(function () {
@@ -423,15 +444,6 @@
     return d.toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " WIB";
   }
 
-  function startProgress() {
-    progressFill.style.transition = "none";
-    progressFill.style.width = "0%";
-    // Paksa reflow biar transition ke-reset sebelum dianimasiin lagi.
-    void progressFill.offsetWidth;
-    progressFill.style.transition = "width " + POLL_MS + "ms linear";
-    progressFill.style.width = "100%";
-  }
-
   function setError(msg) {
     if (!msg) {
       errorBox.classList.remove("show");
@@ -442,47 +454,90 @@
     errorBox.textContent = msg;
   }
 
-  function renderFound(data) {
-    found = true;
-    card.classList.add("is-found");
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function markRead(id) {
+    if (!readSet.has(id)) {
+      readSet.add(id);
+      saveReadSet(readSet);
+    }
+  }
+
+  function toggleMessage(id) {
+    openId = (openId === id) ? null : id;
+    markRead(id);
+    render(lastMessages || []);
+  }
+
+  var lastMessages = [];
+
+  function render(messages) {
+    lastMessages = messages;
+    var unreadCount = messages.filter(function (m) { return !readSet.has(m.id); }).length;
+
+    if (messages.length === 0) {
+      emptyInbox.style.display = "block";
+      inboxList.innerHTML = "";
+      countText.textContent = "Menunggu email masuk…";
+      liveDot.classList.remove("found");
+      return;
+    }
+
+    emptyInbox.style.display = "none";
     liveDot.classList.add("found");
-    setError(null);
+    countText.innerHTML = "<strong>" + messages.length + "</strong> pesan" +
+      (unreadCount > 0 ? " · <strong>" + unreadCount + "</strong> belum dibaca" : " · semua sudah dibaca");
 
-    statusText.textContent = "Link verifikasi diterima!";
-    statusSub.textContent = "Klik tombol di bawah buat login ke Alight Motion.";
-    var openBtn = document.getElementById("openLinkBtn");
-    openBtn.href = data.link;
-    openBtn.style.display = "";
-    document.getElementById("inboxRow").style.display = "";
+    var html = messages.map(function (m) {
+      var isRead = readSet.has(m.id);
+      var isOpen = openId === m.id;
+      var stateClass = (isRead ? "is-read" : "is-unread") + (isOpen ? " is-open" : "");
+      var linkHtml = m.link
+        ? '<a href="' + escapeHtml(m.link) + '" target="_blank" rel="noopener" class="msg-open-link">Buka Link Verifikasi →</a>'
+        : "";
+      var bodyHtml = m.body
+        ? '<div class="msg-body">' + escapeHtml(m.body) + "</div>"
+        : "";
 
-    document.getElementById("fromText").textContent = data.from || "-";
-    document.getElementById("subjectText").textContent = data.subject || "-";
-    document.getElementById("timeText").textContent = fmtTime(data.receivedAt);
-  }
+      return (
+        '<div class="msg ' + stateClass + '" data-id="' + escapeHtml(m.id) + '">' +
+          '<button type="button" class="msg-row" data-toggle="' + escapeHtml(m.id) + '">' +
+            '<span class="msg-dot"></span>' +
+            '<span class="msg-main">' +
+              '<span class="msg-line1">' +
+                '<span class="msg-from">' + escapeHtml(m.from || "(tanpa pengirim)") + '</span>' +
+                '<span class="msg-time">' + escapeHtml(fmtTime(m.receivedAt)) + '</span>' +
+              '</span>' +
+              '<div class="msg-subject">' + escapeHtml(m.subject || "(tanpa subjek)") + '</div>' +
+              (m.snippet ? '<div class="msg-snippet">' + escapeHtml(m.snippet) + '</div>' : "") +
+            '</span>' +
+          '</button>' +
+          '<div class="msg-detail">' +
+            '<div class="field"><span class="label">Dari</span><span class="value mono">' + escapeHtml(m.from || "-") + '</span></div>' +
+            '<div class="field"><span class="label">Subjek</span><span class="value">' + escapeHtml(m.subject || "-") + '</span></div>' +
+            '<div class="field"><span class="label">Waktu</span><span class="value mono">' + escapeHtml(fmtTime(m.receivedAt)) + '</span></div>' +
+            bodyHtml +
+            linkHtml +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
 
-  // Email-nya udah masuk, tapi Worker gagal nemuin link di isinya. Ini
-  // BUKAN status final -- tetep lanjut polling siapa tau ada email susulan
-  // (misal resend) yang link-nya kebaca.
-  function renderReceivedNoLink(data) {
-    setError(null);
-    statusText.textContent = "Email diterima, tapi link belum ketemu.";
-    statusSub.textContent = "Masih nunggu, siapa tau ada email susulan yang link-nya kebaca.";
-    document.getElementById("openLinkBtn").style.display = "none";
-    document.getElementById("inboxRow").style.display = "block";
-    document.getElementById("fromText").textContent = data.from || "-";
-    document.getElementById("subjectText").textContent = data.subject || "-";
-    document.getElementById("timeText").textContent = fmtTime(data.receivedAt);
-  }
+    inboxList.innerHTML = html;
 
-  function renderWaiting() {
-    if (found) return; // sekali link ketemu, gak usah balik ke tampilan nunggu
-    statusText.textContent = "Menunggu email masuk…";
-    statusSub.textContent = "Halaman ini otomatis cek ulang tiap beberapa detik.";
-    document.getElementById("inboxRow").style.display = "none";
+    inboxList.querySelectorAll("[data-toggle]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        toggleMessage(el.getAttribute("data-toggle"));
+      });
+    });
   }
 
   async function checkOnce(manual) {
-    if (manual) refreshIcon.classList.add("spinning");
+    if (manual) refreshBtn.classList.add("spinning");
     try {
       var qs = "email=" + encodeURIComponent(email) + "&sig=" + encodeURIComponent(sig);
       var res = await fetch("/api/inbox?" + qs, { cache: "no-store" });
@@ -490,10 +545,7 @@
 
       if (!res.ok) {
         if (data.terminal) {
-          // Format salah / signature gak valid -- gak akan pernah berhasil
-          // walau di-retry, jadi berhentiin polling total.
           if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-          if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
           showTerminalError(data.error || "Tautan ini gak valid.");
           return;
         }
@@ -501,29 +553,19 @@
         return;
       }
 
-      if (data.found && data.link) {
-        renderFound(data);
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-        if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
-        progressFill.style.width = "0%";
-      } else if (data.found && !data.link) {
-        renderReceivedNoLink(data);
-      } else {
-        renderWaiting();
-      }
+      setError(null);
+      render(Array.isArray(data.messages) ? data.messages : []);
     } catch (e) {
       setError("Gagal konek ke server. Cek koneksi internet kamu.");
     } finally {
-      if (manual) setTimeout(function () { refreshIcon.classList.remove("spinning"); }, 600);
+      if (manual) setTimeout(function () { refreshBtn.classList.remove("spinning"); }, 600);
     }
   }
 
   refreshBtn.addEventListener("click", function () { checkOnce(true); });
 
   checkOnce(false);
-  startProgress();
   pollTimer = setInterval(function () { checkOnce(false); }, POLL_MS);
-  progressTimer = setInterval(startProgress, POLL_MS);
 })();
 </script>
 
