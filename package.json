@@ -1,0 +1,9 @@
+{
+  "name": "generator-hiyorimail",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Halaman single-purpose buat mantau 1 inbox GENMAIL (hiyorimail.biz.id) sampai link verifikasi Alight Motion masuk.",
+  "engines": {
+    "node": ">=18"
+  }
+}
