@@ -290,6 +290,35 @@
     word-break: break-word;
   }
 
+  .msg-inline-link {
+    color: var(--moss);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+  }
+  .msg-inline-link:hover { color: var(--ink); }
+
+  .msg-inline-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 7px;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    margin-left: 4px;
+    vertical-align: middle;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .msg-inline-copy:hover { background: var(--amber-soft); color: var(--ink); }
+  .msg-inline-copy.copied { color: var(--moss); border-color: var(--moss); }
+
   .msg-open-link {
     display: inline-block;
     margin-top: 12px;
@@ -460,6 +489,21 @@
     });
   }
 
+  // Worker nyimpen link yang nempel di teks email (misal tombol/anchor
+  // "Login ke Alight Creative") sebagai penanda "{{LINK|teks|href}}" di
+  // dalam body. Fungsi ini nge-render body itu jadi HTML aman: teks biasa
+  // di-escape seperti biasa, tapi tiap penanda link diubah jadi <a> yang
+  // beneran bisa diklik + tombol kecil buat nyalin URL-nya.
+  function renderBodyWithLinks(raw) {
+    var escaped = escapeHtml(raw);
+    return escaped.replace(/\{\{LINK\|([\s\S]*?)\|([\s\S]*?)\}\}/g, function (_, text, href) {
+      return (
+        '<a href="' + href + '" target="_blank" rel="noopener" class="msg-inline-link">' + text + '</a>' +
+        '<button type="button" class="msg-inline-copy" data-copy-link="' + href + '" title="Salin link">⧉</button>'
+      );
+    });
+  }
+
   function markRead(id) {
     if (!readSet.has(id)) {
       readSet.add(id);
@@ -500,7 +544,7 @@
         ? '<a href="' + escapeHtml(m.link) + '" target="_blank" rel="noopener" class="msg-open-link">Buka Link Verifikasi →</a>'
         : "";
       var bodyHtml = m.body
-        ? '<div class="msg-body">' + escapeHtml(m.body) + "</div>"
+        ? '<div class="msg-body">' + renderBodyWithLinks(m.body) + "</div>"
         : "";
 
       return (
@@ -532,6 +576,23 @@
     inboxList.querySelectorAll("[data-toggle]").forEach(function (el) {
       el.addEventListener("click", function () {
         toggleMessage(el.getAttribute("data-toggle"));
+      });
+    });
+
+    inboxList.querySelectorAll("[data-copy-link]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var url = el.getAttribute("data-copy-link");
+        navigator.clipboard.writeText(url).then(function () {
+          var original = el.textContent;
+          el.textContent = "✓";
+          el.classList.add("copied");
+          setTimeout(function () {
+            el.textContent = original;
+            el.classList.remove("copied");
+          }, 1200);
+        });
       });
     });
   }
