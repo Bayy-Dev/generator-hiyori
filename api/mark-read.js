@@ -119,6 +119,14 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Alamat udah dihapus (tombstone dari bot) -- gak ada pesan beneran
+  // buat ditandain, dan JANGAN sampai tombstone-nya ke-overwrite jadi
+  // array biasa. Anggap aja "gak ketemu", no-op.
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && raw.__deleted === true) {
+    res.status(200).json({ ok: true, found: false });
+    return;
+  }
+
   const list = Array.isArray(raw) ? raw : raw && typeof raw === "object" ? [raw] : [];
 
   let changed = false;
