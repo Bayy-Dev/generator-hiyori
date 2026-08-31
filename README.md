@@ -1,9 +1,62 @@
 # generator-hiyorimail
 
-Halaman **single-purpose** buat mantau 1 inbox GENMAIL (`*@hiyorimail.biz.id`)
-sampai link verifikasi Alight Motion masuk. BUKAN generator publik seperti
-generator.email — gak ada tombol "generate email baru", gak ada dropdown
-domain, cuma nampilin 1 alamat yang dikasih lewat URL.
+Halaman inbox buat 1 alamat GENMAIL (`*@hiyorimail.biz.id`) — nampilin
+**daftar pesan** (bukan cuma 1 link kayak versi sebelumnya), mirip
+generator.email: baris hijau tua = belum dibaca, klik barisnya buat buka
+isinya dan otomatis jadi biru tua (sudah dibaca). BUKAN generator publik
+seperti generator.email — gak ada tombol "generate email baru", gak ada
+dropdown domain, cuma nampilin 1 alamat yang dikasih lewat URL.
+
+## Worker `am-gen-mail`
+
+Sumber Worker-nya ada di `worker/worker-am-gen-mail.js` (bukan file yang
+dideploy otomatis lewat Vercel — ini kode terpisah yang di-deploy manual
+ke Cloudflare Workers, cuma disertain di sini biar 1 repo lengkap).
+
+Sudah diupdate supaya:
+
+- **Nyimpen SEMUA email yang masuk**, bukan cuma yang ada link
+  verifikasinya. `link` cuma diisi kalau ketemu URL yang keliatan kayak
+  link aksi/verifikasi (bukan syarat buat nyimpen emailnya).
+- **Nambahin (append)** tiap email baru ke depan sebuah array riwayat
+  pesan per alamat, bukan nimpa (`overwrite`) 1 pesan doang kayak
+  sebelumnya. Array dipotong ke 20 pesan terakhir (`MAX_MESSAGES_PER_INBOX`)
+  biar KV value-nya gak membengkak.
+- Nyimpen `subject`, `snippet` (ringkasan singkat), dan `body` (isi
+  lengkap, HTML sudah di-strip jadi teks polos) — bukan cuma `link` —
+  biar inbox bisa nampilin isi emailnya, bukan cuma tombol link.
+
+Bentuk 1 pesan yang disimpen di KV:
+```json
+{
+  "id": "1798675629000-a1b2c3d4",
+  "from": "...",
+  "to": "...",
+  "subject": "...",
+  "snippet": "...",
+  "body": "...",
+  "link": "..." ,
+  "receivedAt": 1798675629000
+}
+```
+Dan 1 key di KV = array berisi banyak objek kayak gitu, terbaru di depan.
+
+`api/inbox.js` tetap backward-compatible: kalau suatu saat KV masih ada
+sisa data format lama (1 objek polos, bukan array), otomatis dibungkus
+jadi array 1 elemen, gak error.
+
+**Cara deploy ulang Worker setelah diedit:** lewat dashboard Cloudflare
+Workers (paste kode barunya ke editor Worker yang sudah ada), atau lewat
+`wrangler deploy` kalau kamu pakai Wrangler CLI. Binding KV (`AM_KV`)
+gak perlu diubah, tetap sama kayak sebelumnya.
+
+## Status baca (unread/read)
+
+Status "sudah dibaca" disimpan di `localStorage` browser (per alamat
+email), BUKAN di server/KV — jadi ringan dan gak butuh endpoint baru.
+Konsekuensinya: status baca itu spesifik per browser/perangkat yang
+dipakai buka link-nya, bukan status global yang keliatan sama di semua
+tempat.
 
 Cara pakainya: buka
 `https://generator.hiyorimail.biz.id/?email=xxxxxxxxxxxx@hiyorimail.biz.id&sig=<tanda-tangan>`
