@@ -151,6 +151,7 @@ module.exports = async (req, res) => {
       body: m.body || null,
       link: m.link || null,
       receivedAt: m.receivedAt || null,
+      read: !!m.read, // status baca sekarang disimpen di KV, sync lewat api/mark-read.js
     }))
     .sort((a, b) => (b.receivedAt || 0) - (a.receivedAt || 0));
 
