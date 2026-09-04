@@ -44,11 +44,26 @@
  *   CF_API_TOKEN         -> sama kayak GENMAIL.cfApiToken di bot
  *   LINK_SIGNING_SECRET  -> string rahasia bebas (generate sekali, taruh di
  *                           sini DAN di config.js bot -- harus SAMA PERSIS)
+ *
+ * Environment variable opsional:
+ *   EMAIL_DOMAINS        -> comma-separated, contoh:
+ *                           "hiyorimail.biz.id,bayzstore.biz.id,gmaail.biz.id"
+ *                           HARUS SAMA PERSIS (isi & urutan gak masalah,
+ *                           yang penting semua domain yang dipakai buat
+ *                           generate di project genmail-main ada di sini
+ *                           juga) -- kalau kosong, default cuma
+ *                           "hiyorimail.biz.id".
  */
 
 const crypto = require("crypto");
 
-const EMAIL_DOMAIN = "hiyorimail.biz.id";
+// Dulu: const EMAIL_DOMAIN = "hiyorimail.biz.id"; (1 domain doang, hardcoded)
+// Sekarang: daftar domain, dari Environment Variable EMAIL_DOMAINS -- format
+// SAMA PERSIS kayak EMAIL_DOMAINS di project genmail-main (lib/config.js).
+const EMAIL_DOMAINS = (process.env.EMAIL_DOMAINS || "hiyorimail.biz.id")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 
 function computeSignature(email, secret) {
   return crypto.createHmac("sha256", secret).update(email).digest("hex").slice(0, 24);
@@ -71,12 +86,15 @@ module.exports = async (req, res) => {
   const email = String(req.query.email || "").trim().toLowerCase();
   const sig = String(req.query.sig || "").trim();
 
-  if (!email || !email.endsWith("@" + EMAIL_DOMAIN)) {
+  // Cari domain yang cocok di daftar EMAIL_DOMAINS (bukan cuma 1 domain
+  // tetap lagi). matchedDomain dipakai lagi di bawah buat motong local-part.
+  const matchedDomain = EMAIL_DOMAINS.find((d) => email.endsWith("@" + d));
+  if (!email || !matchedDomain) {
     res.status(400).json({ error: "Parameter 'email' gak valid.", terminal: true });
     return;
   }
 
-  const localPart = email.slice(0, email.length - (EMAIL_DOMAIN.length + 1));
+  const localPart = email.slice(0, email.length - (matchedDomain.length + 1));
   if (!/^[a-z0-9]{1,64}$/.test(localPart)) {
     res.status(400).json({ error: "Parameter 'email' gak valid.", terminal: true });
     return;
