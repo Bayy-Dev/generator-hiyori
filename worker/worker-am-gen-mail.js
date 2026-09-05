@@ -240,6 +240,16 @@ function linkifyAnchors(html) {
       // Pipe "|" atau kurung kurawal di teks link (jarang, tapi jaga-jaga)
       // diganti biar gak bentrok sama format penanda.
       const safeText = text.replace(/[{}|]/g, " ");
+
+      // Cuma skema http/https yang boleh jadi link aktif. Skema lain
+      // (javascript:, data:, vbscript:, dll) dari email pengirim
+      // eksternal DIBUANG jadi teks polos aja, gak dibungkus penanda
+      // {{LINK|..}} sama sekali -- biar index.html gak perlu (dan gak
+      // bisa lupa) validasi ulang, dan biar gak ada skema aneh yang
+      // ikut kesimpen di KV.
+      if (!/^https?:\/\//i.test(href.trim())) {
+        return safeText;
+      }
       return `{{LINK|${safeText}|${href}}}`;
     }
   );
