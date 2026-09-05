@@ -301,6 +301,17 @@
     overflow-wrap: anywhere;
   }
 
+  .msg-body-warning {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #fbeaea;
+    border: 1px solid #e7c3c3;
+    color: #7a2c2c;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
   .msg-inline-link {
     color: var(--moss);
     font-weight: 600;
@@ -524,11 +535,42 @@
   // dalam body. Fungsi ini nge-render body itu jadi HTML aman: teks biasa
   // di-escape seperti biasa, tapi tiap penanda link diubah jadi <a> yang
   // beneran bisa diklik + tombol kecil buat nyalin URL-nya.
+  // Cuma boleh jadi <a> beneran kalau skema-nya http/https. Skema lain
+  // (javascript:, data:, vbscript:, dst) DITOLAK -- ditampilin sebagai
+  // teks polos aja, bukan link aktif. Ini penting karena href di sini
+  // datang dari isi email pengirim eksternal (siapa aja bisa kirim ke
+  // alamat disposable ini), jadi gak boleh dipercaya begitu aja.
+  function isSafeHref(href) {
+    try {
+      // href udah lolos escapeHtml sebelumnya (entity di-decode balik dulu
+      // di sini biar bisa dicek schemenya) -- decode entity dasar aja.
+      var decoded = href
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+      return /^https?:\/\//i.test(decoded);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function renderBodyWithLinks(raw) {
     var escaped = escapeHtml(raw);
     return escaped.replace(/\{\{LINK\|([\s\S]*?)\|([\s\S]*?)\}\}/g, function (_, text, href) {
+      if (!isSafeHref(href)) {
+        // Bukan link http/https -- jangan dijadiin elemen aktif, tampilin
+        // teks doang biar gak ada yang bisa dieksekusi/di-klik.
+        return text;
+      }
+      // rel="nofollow ugc noopener" -- nofollow + ugc ngasih tau Google
+      // (dan crawler lain) bahwa link ini konten kiriman pihak ketiga
+      // (isi email orang lain), BUKAN link yang situs ini endorse/buat
+      // sendiri. noopener buat keamanan tab baru seperti biasa.
       return (
-        '<a href="' + href + '" target="_blank" rel="noopener" class="msg-inline-link">' + text + '</a>' +
+        '<a href="' + href + '" target="_blank" rel="nofollow ugc noopener" class="msg-inline-link">' + text + '</a>' +
         '<button type="button" class="msg-inline-copy" data-copy-link="' + href + '" title="Salin link">⧉</button>'
       );
     });
@@ -585,7 +627,8 @@
       var isOpen = openId === m.id;
       var stateClass = (isReadNow ? "is-read" : "is-unread") + (isOpen ? " is-open" : "");
       var bodyHtml = m.body
-        ? '<div class="msg-body">' + renderBodyWithLinks(m.body) + "</div>"
+        ? '<div class="msg-body-warning">⚠️ Isi di bawah ini adalah konten email dari pengirim luar, bukan konten resmi hiyorimail. Hati-hati kalau ada link atau permintaan data pribadi.</div>' +
+          '<div class="msg-body">' + renderBodyWithLinks(m.body) + "</div>"
         : "";
 
       return (
