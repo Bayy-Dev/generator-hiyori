@@ -627,7 +627,7 @@
       var isOpen = openId === m.id;
       var stateClass = (isReadNow ? "is-read" : "is-unread") + (isOpen ? " is-open" : "");
       var bodyHtml = m.body
-        ? '<div class="msg-body-warning">⚠️ NOTE: Jangan menggunakan email ini untuk hal penting!!!, soalnya ini hanya email semantara yg suatu saat nanti akan hilang</div>' +
+        ? '<div class="msg-body-warning">⚠️ Isi di bawah ini adalah konten email dari pengirim luar, bukan konten resmi hiyorimail. Hati-hati kalau ada link atau permintaan data pribadi.</div>' +
           '<div class="msg-body">' + renderBodyWithLinks(m.body) + "</div>"
         : "";
 
