@@ -115,7 +115,16 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const key = localPart;
+  // PRIMARY_DOMAIN -- harus SAMA PERSIS kayak PRIMARY_DOMAIN di worker
+  // (worker-am-gen-mail.js), soalnya skema key KV-nya ngikutin domain ini.
+  const PRIMARY_DOMAIN = "hiyorimail.biz.id";
+
+  // Samain persis logika kvKeyFor() di worker: domain primary -> key cuma
+  // local-part polos, domain lain -> key "<domain>:<local-part>". Kalau
+  // dua-duanya beda, halaman inbox bakal nyari di key yang salah dan
+  // keliatan "belum ada email masuk" padahal sebenernya udah ke-handle
+  // Worker (ini yang kejadian sebelumnya buat domain gmaail.biz.id).
+  const key = matchedDomain === PRIMARY_DOMAIN ? localPart : `${matchedDomain}:${localPart}`;
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
 
