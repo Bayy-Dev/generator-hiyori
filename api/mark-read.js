@@ -22,7 +22,16 @@
 
 const crypto = require("crypto");
 
-const EMAIL_DOMAIN = "hiyorimail.biz.id";
+// Sama persis kayak api/inbox.js -- daftar domain dari Environment Variable
+// EMAIL_DOMAINS (format sama kayak di project genmail-main / worker).
+const EMAIL_DOMAINS = (process.env.EMAIL_DOMAINS || "hiyorimail.biz.id")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
+// HARUS SAMA PERSIS kayak PRIMARY_DOMAIN di worker-am-gen-mail.js, soalnya
+// skema key KV-nya ngikutin domain ini.
+const PRIMARY_DOMAIN = "hiyorimail.biz.id";
 
 function computeSignature(email, secret) {
   return crypto.createHmac("sha256", secret).update(email).digest("hex").slice(0, 24);
@@ -55,12 +64,13 @@ module.exports = async (req, res) => {
   const sig = String(body.sig || "").trim();
   const id = String(body.id || "").trim();
 
-  if (!email || !email.endsWith("@" + EMAIL_DOMAIN)) {
+  const matchedDomain = EMAIL_DOMAINS.find((d) => email.endsWith("@" + d));
+  if (!email || !matchedDomain) {
     res.status(400).json({ error: "Parameter 'email' gak valid." });
     return;
   }
 
-  const localPart = email.slice(0, email.length - (EMAIL_DOMAIN.length + 1));
+  const localPart = email.slice(0, email.length - (matchedDomain.length + 1));
   if (!/^[a-z0-9]{1,64}$/.test(localPart)) {
     res.status(400).json({ error: "Parameter 'email' gak valid." });
     return;
@@ -83,7 +93,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const key = localPart;
+  const key = matchedDomain === PRIMARY_DOMAIN ? localPart : `${matchedDomain}:${localPart}`;
   const kvUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
 
   // 1) Ambil isi KV yang sekarang.
