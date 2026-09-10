@@ -1,9 +1,9 @@
 {
-  "name": "generator-hiyorimail",
+  "name": "web-genmail",
   "version": "1.0.0",
+  "description": "Versi web dari telegram-genmail-bot - alur & cara kerja sama persis, deploy di Vercel",
   "private": true,
-  "description": "Halaman single-purpose buat mantau 1 inbox GENMAIL (hiyorimail.biz.id) sampai link verifikasi Alight Motion masuk.",
-  "engines": {
-    "node": ">=18"
+  "dependencies": {
+    "cookie": "^0.6.0"
   }
 }
